@@ -48,14 +48,19 @@ func Main() error {
 	flag.Parse()
 	statsClient := NewDataDogStatsDClient(*metricsAddress, "replica:"+*replicaName)
 
-  sslConfig, sslConfigErr := NewSSLConfig(*sslPEMKeyFile, *mongoSSLPEMKeyFile, *sslSkipVerify)
-  if sslConfigErr != nil {
-    return sslConfigErr
-  }
+	// Actual logger
+	corelog.SetupLogFmtLoggerTo(os.Stderr)
+	corelog.SetStandardFields("replicaset", *replicaName)
+	corelog.UseTimestamp(true)
+
   cred := dvara.Credential{
     Username: *username,
     Password: *password,
     Mechanism: *mechanism,
+  }
+  sslConfig, sslConfigErr := NewSSLConfig(*sslPEMKeyFile, *mongoSSLPEMKeyFile, *sslSkipVerify, &cred)
+  if sslConfigErr != nil {
+    return sslConfigErr
   }
 
 	replicaSet := dvara.ReplicaSet{
@@ -76,11 +81,6 @@ func Main() error {
     BackendTLSConfig:        sslConfig.mongoTLSConfig,
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
-
-	// Actual logger
-	corelog.SetupLogFmtLoggerTo(os.Stderr)
-	corelog.SetStandardFields("replicaset", *replicaName)
-	corelog.UseTimestamp(true)
 
 	// Log command line args
 	startupOptions := []interface{} {}
