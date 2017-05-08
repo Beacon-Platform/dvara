@@ -1,6 +1,7 @@
 package dvara
 
 import (
+  "crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -29,10 +30,10 @@ var (
 type Proxy struct {
 	ReplicaSet     *ReplicaSet
 	ClientListener net.Listener // Listener for incoming client connections
-	Username       string       // Mongo user, if mongo uses auth
-	Password       string       // Mongo password, if mongo uses auth
+  Cred           Credential
 	ProxyAddr      string       // Address for incoming client connections
 	MongoAddr      string       // Address for destination Mongo server
+  TLSConfig      *tls.Config  // TLS config for backend, nil if no TLS
 
 	wg                      sync.WaitGroup
 	closed                  chan struct{}
@@ -106,7 +107,7 @@ func (p *Proxy) AuthConn(conn net.Conn) error {
 	socket := &mongoSocket{
 		conn: conn,
 	}
-	err := socket.Login(Credential{Username: p.Username, Password: p.Password, Source: "admin"})
+	err := socket.Login(p.Cred)
 	if err != nil {
 		return err
 	}
@@ -121,7 +122,7 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 	for retryCount := 7; retryCount > 0; retryCount-- {
 		c, err := net.DialTimeout("tcp", p.MongoAddr, time.Second)
 		if err == nil {
-			if len(p.Username) == 0 {
+			if len(p.Cred.Username) == 0 {
 				return c, nil
 			}
 			err = p.AuthConn(c)

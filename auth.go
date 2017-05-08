@@ -41,10 +41,12 @@ type Credential struct {
 	// Password is optional with some authentication mechanisms.
 	Username string
 	Password string
+  // The mechanism to use, defaults to MONGODB-CR if not specified
+  Mechanism string
 
 	// Source is the database used to establish credentials and privileges
 	// with a MongoDB server. Defaults to the default database provided
-	// during dial, or "admin" if that was unset.
+	// during dial, or "admin" if that was unset or "$external" for the MONGDB-X509 mechanism
 	Source string
 }
 
@@ -114,7 +116,74 @@ func (socket *mongoSocket) getNonce() (nonce string, err error) {
 	return
 }
 
+func (socket *mongoSocket) loginRun(db string, query, result interface{}) error {
+	op := queryOp{}
+	op.query = query
+	op.collection = db + ".$cmd"
+	op.limit = -1
+	op.replyFunc = func(err error, reply *replyOp, docNum int, docData []byte) {
+		err = bson.Unmarshal(docData, result)
+		if err != nil {
+			return
+		}
+  }
+
+	err := socket.Query(&op)
+	if err != nil {
+		return err
+	}
+  return err
+}
+
+func (socket *mongoSocket) loginClassic(cred Credential) error {
+	nonce, err := socket.getNonce()
+	if err != nil {
+		return err
+	}
+
+	psum := md5.New()
+	psum.Write([]byte(cred.Username + ":mongo:" + cred.Password))
+
+	ksum := md5.New()
+	ksum.Write([]byte(nonce + cred.Username))
+	ksum.Write([]byte(hex.EncodeToString(psum.Sum(nil))))
+
+	key := hex.EncodeToString(ksum.Sum(nil))
+
+  source := cred.Source
+  if source == "" {
+    source = "admin"
+  }
+	cmd := authCmd{Authenticate: 1, User: cred.Username, Nonce: nonce, Key: key}
+	fmt.Printf("Trying to login with nonce:%s \n", nonce)
+	res := authResult{}
+  return socket.loginRun(source, &cmd, &res)
+}
+
+type authX509Cmd struct {
+	Authenticate int
+	User         string
+	Mechanism    string
+}
+
+func (socket *mongoSocket) loginX509(cred Credential) error {
+	cmd := authX509Cmd{Authenticate: 1, User: cred.Username, Mechanism: "MONGODB-X509"}
+	res := authResult{}
+  source := "$external"
+	return socket.loginRun(source, &cmd, &res)
+}
+
 func (socket *mongoSocket) Login(cred Credential) error {
+  var err error
+  switch cred.Mechanism {
+  case "", "MONGODB-CR", "MONGO-CR": // Name changed to MONGODB-CR in SERVER-8501
+    err = socket.loginClassic(cred)
+  case "MONGODB-X509":
+    err = socket.loginX509(cred)
+  default:
+    err = errors.New("Unknown authentication mechanism: "+cred.Mechanism)
+    return err
+  }
 	nonce, err := socket.getNonce()
 	if err != nil {
 		return err

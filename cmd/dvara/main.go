@@ -40,9 +40,23 @@ func Main() error {
 	replicaSetName := flag.String("replica_set_name", "", "Replica set name, used to filter hosts runnning other replica sets")
 	healthCheckInterval := flag.Duration("healthcheckinterval", 5*time.Second, "How often to run the health check")
 	failedHealthCheckThreshold := flag.Uint("failedhealthcheckthreshold", 3, "How many failed checks before a restart")
+  sslPEMKeyFile := flag.String("ssl_pem_key_file", "", "PEM Cert and Private Key file for enabling TLS on the listen sockets")
+  mongoSSLPEMKeyFile := flag.String("mongo_ssl_pem_key_file", "", "PEM Cert and private Key file to present to the mongo servers")
+  mechanism := flag.String("mechanism", "", "Login mechanism")
+  sslSkipVerify := flag.Bool("ssl_skip_verify", false, "Skip SSL hostname verification")
 
 	flag.Parse()
 	statsClient := NewDataDogStatsDClient(*metricsAddress, "replica:"+*replicaName)
+
+  sslConfig, sslConfigErr := NewSSLConfig(*sslPEMKeyFile, *mongoSSLPEMKeyFile, *sslSkipVerify)
+  if sslConfigErr != nil {
+    return sslConfigErr
+  }
+  cred := dvara.Credential{
+    Username: *username,
+    Password: *password,
+    Mechanism: *mechanism,
+  }
 
 	replicaSet := dvara.ReplicaSet{
 		Addrs:                   *addrs,
@@ -52,13 +66,14 @@ func Main() error {
 		MaxConnections:          *maxConnections,
 		MaxPerClientConnections: *maxPerClientConnections,
 		MessageTimeout:          *messageTimeout,
-		Password:                *password,
 		PortEnd:                 *portEnd,
 		PortStart:               *portStart,
 		ServerClosePoolSize:     *serverClosePoolSize,
 		ServerIdleTimeout:       *serverIdleTimeout,
-		Username:                *username,
+		Cred:                    cred,
 		Name:                    *replicaSetName,
+    TLSConfig:               sslConfig.tlsConfig,
+    BackendTLSConfig:        sslConfig.mongoTLSConfig,
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
 

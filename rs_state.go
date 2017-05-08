@@ -1,8 +1,10 @@
 package dvara
 
 import (
+  "crypto/tls"
 	"errors"
 	"fmt"
+  "net"
 	"sort"
 	"time"
 
@@ -26,15 +28,34 @@ type ReplicaSetState struct {
 }
 
 // NewReplicaSetState creates a new ReplicaSetState using the given address.
-func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, error) {
+func NewReplicaSetState(cred Credential, addr string, tlsConfig *tls.Config) (*ReplicaSetState, error) {
 	const TIMEOUT = 500 * time.Millisecond
+
+  mechanism := cred.Mechanism
+  source := cred.Source
+  if mechanism == "MONGODB-X509" {
+    source = "$external"
+  } else if source == "" {
+    source = "admin"
+  }
+
+  var dialServer func(addr* mgo.ServerAddr) (net.Conn, error)
+  if tlsConfig != nil {
+    dialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
+      return tls.Dial("tcp", addr.String(), tlsConfig)
+    }
+  }
+
 	info := &mgo.DialInfo{
-		Addrs:    []string{addr},
-		Username: username,
-		Password: password,
-		Direct:   true,
-		FailFast: true,
-		Timeout:  TIMEOUT,
+		Addrs:      []string{addr},
+		Username:   cred.Username,
+		Password:   cred.Password,
+    Source:     source,
+    Mechanism:  mechanism,
+		Direct:     true,
+		FailFast:   true,
+		Timeout:    TIMEOUT,
+    DialServer: dialServer,
 	}
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
@@ -123,10 +144,10 @@ type ReplicaSetStateCreator struct {
 
 // FromAddrs creates a ReplicaSetState from the given set of see addresses. It
 // requires the addresses to be part of the same Replica Set.
-func (c *ReplicaSetStateCreator) FromAddrs(username, password string, addrs []string, replicaSetName string) (*ReplicaSetState, error) {
+func (c *ReplicaSetStateCreator) FromAddrs(cred Credential, addrs []string, replicaSetName string, tlsConfig *tls.Config) (*ReplicaSetState, error) {
 	var r *ReplicaSetState
 	for _, addr := range addrs {
-		ar, err := NewReplicaSetState(username, password, addr)
+		ar, err := NewReplicaSetState(cred, addr, tlsConfig)
 		if err != nil {
 			if err != errNoReachableServers {
 				corelog.LogErrorMessage(fmt.Sprintf("ignoring failure against address %s: %s", addr, err))
