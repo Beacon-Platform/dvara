@@ -120,7 +120,14 @@ func (p *Proxy) AuthConn(conn net.Conn) error {
 func (p *Proxy) newServerConn() (io.Closer, error) {
 	retrySleep := 50 * time.Millisecond
 	for retryCount := 7; retryCount > 0; retryCount-- {
-		c, err := net.DialTimeout("tcp", p.MongoAddr, time.Second)
+    dialer := &net.Dialer{Timeout: time.Second}
+    var err error
+    var c net.Conn
+    if p.TLSConfig == nil {
+      c, err = dialer.Dial("tcp", p.MongoAddr)
+    } else {
+      c, err = tls.DialWithDialer(dialer, "tcp", p.MongoAddr, p.TLSConfig)
+    }
 		if err == nil {
 			if len(p.Cred.Username) == 0 {
 				return c, nil
