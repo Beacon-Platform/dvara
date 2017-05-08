@@ -1,6 +1,7 @@
 package main
 
 import (
+  "crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -63,6 +64,15 @@ func Main() error {
     return sslConfigErr
   }
 
+  // for the health checks
+  var healthCheckTLSConfig *tls.Config
+  if sslConfig.tlsConfig != nil {
+    // ignore ssl verification for the health checker since we connect via localhost
+    healthCheckTLSConfig = &tls.Config{
+      InsecureSkipVerify: true,
+    }
+  }
+
 	replicaSet := dvara.ReplicaSet{
 		Addrs:                   *addrs,
 		ClientIdleTimeout:       *clientIdleTimeout,
@@ -79,6 +89,7 @@ func Main() error {
 		Name:                    *replicaSetName,
     TLSConfig:               sslConfig.tlsConfig,
     BackendTLSConfig:        sslConfig.mongoTLSConfig,
+    HealthCheckTLSConfig:    healthCheckTLSConfig,
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
 

@@ -94,6 +94,9 @@ type ReplicaSet struct {
 
   // TLS config to use to dial to the backend server, nil if no TLS
   BackendTLSConfig *tls.Config
+
+  // Health check TLS config to use if the listen socket is setup to use TLS
+  HealthCheckTLSConfig *tls.Config
 }
 
 func (r *ReplicaSet) Start() error {

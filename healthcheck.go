@@ -1,8 +1,10 @@
 package dvara
 
 import (
+  "crypto/tls"
 	"errors"
 	"fmt"
+  "net"
 	"strings"
 	"time"
 
@@ -91,7 +93,7 @@ func (r *ReplicaSet) HandleFailure() {
 func (r *ReplicaSet) runCheck(errChan chan<- error) {
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	addrs := strings.Split(fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", r.PortStart, r.PortStart+1, r.PortStart+2, r.PortStart+3, r.PortStart+4), ",")
-	err := checkReplSetStatus(addrs, r.Name)
+	err := checkReplSetStatus(addrs, r.Name, r.HealthCheckTLSConfig)
 	select {
 	case errChan <- err:
 	default:
@@ -99,7 +101,7 @@ func (r *ReplicaSet) runCheck(errChan chan<- error) {
 	}
 }
 
-func checkReplSetStatus(addrs []string, replicaSetName string) error {
+func checkReplSetStatus(addrs []string, replicaSetName string, tlsConfig *tls.Config) error {
 	info := &mgo.DialInfo{
 		Addrs:    addrs,
 		FailFast: true,
@@ -107,6 +109,11 @@ func checkReplSetStatus(addrs []string, replicaSetName string) error {
 		Direct:         true,
 		ReplicaSetName: replicaSetName,
 	}
+  if tlsConfig != nil {
+    info.DialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
+      return tls.Dial("tcp", addr.String(), tlsConfig)
+    }
+  }
 
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
