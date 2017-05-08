@@ -33,6 +33,7 @@ import (
 	"fmt"
 
 	"gopkg.in/mgo.v2-unstable/bson"
+  corelog "github.com/intercom/gocore/log"
 )
 
 // Credential holds details to authenticate with a MongoDB server.
@@ -74,7 +75,7 @@ type getNonceResult struct {
 }
 
 func (socket *mongoSocket) getNonce() (nonce string, err error) {
-	fmt.Printf("Socket %p to %s: requesting a new nonce\n", socket, socket.addr)
+	corelog.LogInfoMessage(fmt.Sprintf("Socket %p to %s: requesting a new nonce\n", socket, socket.addr))
 	op := &queryOp{}
 	op.query = &getNonceCmd{GetNonce: 1}
 	op.collection = "admin.$cmd"
@@ -90,7 +91,7 @@ func (socket *mongoSocket) getNonce() (nonce string, err error) {
 			socket.kill(errors.New("Failed to unmarshal nonce: "+err.Error()), true)
 			return
 		}
-		fmt.Printf("Socket %p to %s: nonce unmarshalled: %#v\n", socket, socket.addr, result)
+		corelog.LogInfoMessage(fmt.Sprintf("Socket %p to %s: nonce unmarshalled: %#v\n", socket, socket.addr, result))
 		if result.Code == 13390 {
 			// mongos doesn't yet support auth (see http://j.mp/mongos-auth)
 			result.Nonce = "mongos"
@@ -101,7 +102,7 @@ func (socket *mongoSocket) getNonce() (nonce string, err error) {
 			} else {
 				msg = "Got an empty nonce"
 			}
-			fmt.Println(msg)
+			corelog.LogErrorMessage(msg)
 			err = errors.New(msg)
 			socket.kill(errors.New(msg), true)
 			return
@@ -155,7 +156,7 @@ func (socket *mongoSocket) loginClassic(cred Credential) error {
     source = "admin"
   }
 	cmd := authCmd{Authenticate: 1, User: cred.Username, Nonce: nonce, Key: key}
-	fmt.Printf("Trying to login with nonce:%s \n", nonce)
+	corelog.LogInfoMessage(fmt.Sprintf("Trying to login with nonce:%s", nonce))
 	res := authResult{}
   return socket.loginRun(source, &cmd, &res)
 }
@@ -168,6 +169,7 @@ type authX509Cmd struct {
 
 func (socket *mongoSocket) loginX509(cred Credential) error {
 	cmd := authX509Cmd{Authenticate: 1, User: cred.Username, Mechanism: "MONGODB-X509"}
+	corelog.LogInfoMessage("Trying to login with MONGODB-X509 mechanism")
 	res := authResult{}
   source := "$external"
 	return socket.loginRun(source, &cmd, &res)
