@@ -39,13 +39,6 @@ func NewReplicaSetState(cred Credential, addr string, tlsConfig *tls.Config) (*R
     source = "admin"
   }
 
-  var dialServer func(addr* mgo.ServerAddr) (net.Conn, error)
-  if tlsConfig != nil {
-    dialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
-      return tls.Dial("tcp", addr.String(), tlsConfig)
-    }
-  }
-
 	info := &mgo.DialInfo{
 		Addrs:      []string{addr},
 		Username:   cred.Username,
@@ -55,8 +48,12 @@ func NewReplicaSetState(cred Credential, addr string, tlsConfig *tls.Config) (*R
 		Direct:     true,
 		FailFast:   true,
 		Timeout:    TIMEOUT,
-    DialServer: dialServer,
 	}
+  if tlsConfig != nil {
+    info.DialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
+      return tls.Dial("tcp", addr.String(), tlsConfig)
+    }
+  }
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return nil, errNoReachableServers
