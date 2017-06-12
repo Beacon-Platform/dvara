@@ -150,45 +150,40 @@ func (p *Proxy) serverCloseErrorHandler(err error) {
 
 // proxyMessage proxies a message, possibly it's response, and possibly a
 // follow up call.
-func (p *Proxy) proxyMessage(
-	h *messageHeader,
-	client net.Conn,
-	server net.Conn,
-	lastError *LastError,
-) error {
+func (p *Proxy) proxyMessage(message *ProxiedMessage) error {
 	deadline := time.Now().Add(p.ReplicaSet.MessageTimeout)
-	server.SetDeadline(deadline)
-	client.SetDeadline(deadline)
+	message.server.SetDeadline(deadline)
+	message.client.SetDeadline(deadline)
 
 	// OpQuery may need to be transformed and need special handling in order to
 	// make the proxy transparent.
-	if h.OpCode == OpQuery {
+	if message.header.OpCode == OpQuery {
 		stats.BumpSum(p.stats, "message.with.response", 1)
-		return p.ReplicaSet.ProxyQuery.Proxy(h, client, server, lastError)
+		return p.ReplicaSet.ProxyQuery.Proxy(message)
 	}
 
 	// Anything besides a getlasterror call (which requires an OpQuery) resets
 	// the lastError.
-	if lastError.Exists() {
+	if message.lastError.Exists() {
 		corelog.LogInfoMessage("reset getLastError cache")
-		lastError.Reset()
+		message.lastError.Reset()
 	}
 
 	// For other Ops we proxy the header & raw body over.
-	if err := h.WriteTo(server); err != nil {
+	if err := message.header.WriteTo(message.server); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
 
-	if _, err := io.CopyN(server, client, int64(h.MessageLength-headerLen)); err != nil {
+	if _, err := io.CopyN(message.server, message.client, int64(message.header.MessageLength-headerLen)); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
 
 	// For Ops with responses we proxy the raw response message over.
-	if h.OpCode.HasResponse() {
+	if message.header.OpCode.HasResponse() {
 		stats.BumpSum(p.stats, "message.with.response", 1)
-		if err := copyMessage(client, server); err != nil {
+		if err := copyMessage(message.client, message.server); err != nil {
 			corelog.LogError("error", err)
 			return err
 		}
@@ -264,9 +259,11 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 			return
 		}
 
+    proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
+
 		scht := stats.BumpTime(p.stats, "server.conn.held.time")
 		for {
-			err := p.proxyMessage(h, c, serverConn, &lastError)
+			err := p.proxyMessage(&proxiedMessage)
 			if err != nil {
 				p.serverPool.Discard(serverConn)
 				corelog.LogErrorMessage(fmt.Sprintf("Proxy message failed %s ", err))
