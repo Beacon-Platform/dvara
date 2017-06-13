@@ -22,6 +22,8 @@ type StateManager struct {
 	realToProxy map[string]string
 	proxies     map[string]*Proxy
 	refreshTime time.Time
+
+	ExtensionStack *ProxyExtensionStack `inject:""`
 }
 
 func NewStateManager(replicaSet *ReplicaSet) *StateManager {
@@ -173,6 +175,7 @@ func (manager *StateManager) generateProxies(addresses ...string) ([]*Proxy, err
 			Username:       manager.replicaSet.Username,
 			Password:       manager.replicaSet.Password,
 			MongoAddr:      address,
+			extensions:     manager.ExtensionStack.GetExtensions(),
 		}
 
 		proxies = append(proxies, p)

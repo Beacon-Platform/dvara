@@ -39,6 +39,8 @@ type Proxy struct {
 	serverPool              Pool
 	stats                   stats.Client
 	maxPerClientConnections *maxPerClientConnections
+
+	extensions []ProxyExtension
 }
 
 // String representation for debugging.
@@ -215,6 +217,8 @@ func (p *Proxy) clientAcceptLoop() {
 func (p *Proxy) clientServeLoop(c net.Conn) {
 	remoteIP := c.RemoteAddr().(*net.TCPAddr).IP.String()
 
+	// TODO: connection set up handler
+
 	// enforce per-client max connection limit
 	if p.maxPerClientConnections.inc(remoteIP) {
 		c.Close()
@@ -260,9 +264,13 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 		}
 
     proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
+		for _, extension := range p.extensions {
+			extension.onHeader(&proxiedMessage)
+		}
 
 		scht := stats.BumpTime(p.stats, "server.conn.held.time")
 		for {
+			// TODO: message processing handler
 			err := p.proxyMessage(&proxiedMessage)
 			if err != nil {
 				p.serverPool.Discard(serverConn)
@@ -276,6 +284,8 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 
 			// One message was proxied, stop it's timer.
 			mpt.End()
+
+			// TODO: response processing handler
 
 			if !h.OpCode.IsMutation() {
 				break

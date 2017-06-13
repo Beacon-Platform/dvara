@@ -83,6 +83,7 @@ func Main() error {
 	err := graph.Provide(
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: &statsClient},
+		&inject.Object{Value: &ExtensionStackInstance},
 		&inject.Object{Value: stateManager},
 	)
 	if err != nil {
