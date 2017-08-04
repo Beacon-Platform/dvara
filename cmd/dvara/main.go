@@ -10,7 +10,7 @@ import (
 
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
-	"github.com/intercom/dvara"
+	"dvara"
 	corelog "github.com/intercom/gocore/log"
 )
 
