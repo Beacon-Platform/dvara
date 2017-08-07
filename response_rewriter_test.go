@@ -7,6 +7,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"net"
+	"time"
+	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/facebookgo/ensure"
@@ -68,6 +71,14 @@ type fakeReadWriter struct {
 	io.Reader
 	io.Writer
 }
+
+// mock methods to enable net.Conn interface in fakeReadWriter
+func (conn fakeReadWriter) Close() error {return errors.New("Not implemented")}
+func (conm fakeReadWriter) LocalAddr() net.Addr {return nil}
+func (conn fakeReadWriter) RemoteAddr() net.Addr {return nil}
+func (conn fakeReadWriter) SetDeadline(t time.Time) error {return errors.New("Not implemented")}
+func (conn fakeReadWriter) SetReadDeadline(t time.Time) error {return errors.New("Not implemented")}
+func (conn fakeReadWriter) SetWriteDeadline(t time.Time) error {return errors.New("Not implemented")}
 
 func TestResponseRWReadOne(t *testing.T) {
 	t.Parallel()
@@ -370,17 +381,19 @@ func TestProxyQuery(t *testing.T) {
 	objects := graph.Objects()
 	ensure.Nil(t, startstop.Start(objects, &log))
 	defer startstop.Stop(objects, &log)
-
+    fmt.Printf("Defining cases\n")
 	cases := []struct {
 		Name   string
 		Header *messageHeader
-		Client io.ReadWriter
+		Client fakeReadWriter
 		Error  string
 	}{
 		{
 			Name:   "EOF while reading flags from client",
 			Header: &messageHeader{},
-			Client: new(bytes.Buffer),
+			Client: fakeReadWriter{
+				Reader: new(bytes.Buffer),
+			},
 			Error:  "EOF",
 		},
 		{
@@ -444,7 +457,8 @@ func TestProxyQuery(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		err := p.Proxy(c.Header, c.Client, nil, nil)
+		message := NewProxiedMessage(c.Header, c.Client, nil, nil)
+		err := p.Proxy(&message)
 		if err == nil || !strings.Contains(err.Error(), c.Error) {
 			t.Fatalf("did not find expected error for %s, instead found %s", c.Name, err)
 		}
