@@ -17,6 +17,8 @@ type ProxiedMessage struct {
   fullCollectionName []byte
 	queryDoc []byte
   query bson.D
+
+  err error
 }
 
 func NewProxiedMessage(
@@ -25,35 +27,44 @@ func NewProxiedMessage(
 	return ProxiedMessage{
 		header, client, server, lastError,
 		nil, nil, nil, nil,
+		nil,
 	}
 }
 
-func (message* ProxiedMessage) GetParts() [][]byte {
-	if message.parts == nil {
-		message.loadParts()
+func (message* ProxiedMessage) GetParts() ([][]byte, error) {
+	if message.err != nil {
+		return nil, message.err
+	} else if message.parts == nil {
+		message.err = message.loadParts()
 	}
-	return message.parts
+	return message.parts, message.err
 }
 
-func (message* ProxiedMessage) GetFullCollectionName() []byte {
-  if message.fullCollectionName == nil {
-		message.loadParts()
+func (message* ProxiedMessage) GetFullCollectionName() ([]byte, error) {
+	if message.err != nil {
+		return nil, message.err
+	} else if message.fullCollectionName == nil {
+		message.err = message.loadParts()
 	}
-	return message.fullCollectionName
+	return message.fullCollectionName, message.err
 }
 
-func (message* ProxiedMessage) GetQueryDoc() []byte {
-	if message.queryDoc == nil {
-		message.loadParts()
+func (message* ProxiedMessage) GetQueryDoc() ([]byte, error) {
+	if message.err != nil {
+		return nil, message.err
+	} else if message.queryDoc == nil {
+		message.err = message.loadParts()
 	}
-	return message.queryDoc
+	return message.queryDoc, message.err
 }
 
-func (message* ProxiedMessage) GetQuery() bson.D {
-  if message.query == nil {
-		message.loadQuery()
+func (message* ProxiedMessage) GetQuery() (bson.D, error) {
+	if message.err != nil {
+		return nil, message.err
+	} else if message.query == nil {
+		message.err = message.loadQuery()
 	}
-	return message.query
+	return message.query, message.err
 }
 
 func (message* ProxiedMessage) loadParts() error {
@@ -91,9 +102,18 @@ func (message* ProxiedMessage) loadParts() error {
 }
 
 func (message* ProxiedMessage) loadQuery() error {
-	if err := bson.Unmarshal(message.GetQueryDoc(), &message.query); err != nil {
-		corelog.LogError("error", err)
-		return err
+	if message.err != nil {
+		return message.err
+	}	else {
+	  var queryDoc []byte
+		queryDoc, message.err = message.GetQueryDoc()
+		if message.err != nil {
+			return message.err
+		}
+	  message.err = bson.Unmarshal(queryDoc, &message.query);
+	  if message.err != nil {
+			return message.err
+	  }
 	}
 	return nil
 }

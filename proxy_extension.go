@@ -1,7 +1,7 @@
 package dvara
 
 import(
-  corelog "github.com/intercom/gocore/log"
+	corelog "github.com/intercom/gocore/log"
 	"fmt"
 )
 
@@ -49,8 +49,10 @@ type QueryLogger struct {
 }
 
 func (extension *QueryLogger) onHeader(message *ProxiedMessage) bool {
-	query := message.GetQuery()
-	logMessage := fmt.Sprintf("message: {%s}", query)
-	corelog.LogInfo(logMessage);
+	query, err := message.GetQuery()
+	if (err != nil) {
+		logMessage := fmt.Sprintf("message: {%s}", query)
+		corelog.LogInfo(logMessage);
+	}
 	return true;
 }

@@ -42,12 +42,21 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 	// simple check to determine this, and may change underneath us at the mongo
 	// layer.
 	resetLastError := true
-	fullCollectionName := message.GetFullCollectionName()
-	parts := message.GetParts()
+	fullCollectionName, err1 := message.GetFullCollectionName()
+	if err1 != nil {
+		return err1
+	}
+	parts, err2 := message.GetParts()
+	if err2 != nil {
+		return err2
+	}
 
 	var rewriter responseRewriter
 	if *proxyAllQueries || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
-		q := message.GetQuery()
+		q, err3 := message.GetQuery()
+		if err3 != nil {
+			return err3
+		}
 		if hasKey(q, "getLastError") {
 			return p.GetLastErrorRewriter.Rewrite(
 				message.header,
