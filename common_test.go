@@ -3,6 +3,7 @@ package dvara
 import (
 	"testing"
 	"time"
+	"strings"
 
 	"gopkg.in/mgo.v2"
 
@@ -111,9 +112,19 @@ func (h *Harness) RealSession() *mgo.Session {
 	return h.Dial(h.Manager.currentReplicaSetState.Addrs()[0])
 }
 
+// if listenAddr is 0, it may be impossible to connect to it
+func listenAddrToConnect(listenAddr string) string {
+	if strings.HasPrefix(listenAddr, "[::]") {
+		return strings.Replace(listenAddr, "[::]", "127.0.0.1", 1)
+	} else {
+		return listenAddr
+	}
+}
+
 func (h *Harness) Dial(u string) *mgo.Session {
-	session, err := mgo.Dial(u)
-	ensure.Nil(h.T, err, u)
+	connectAddr := listenAddrToConnect(u)
+	session, err := mgo.Dial(connectAddr)
+	ensure.Nil(h.T, err, connectAddr)
 	session.SetSafe(&mgo.Safe{FSync: true, W: 1})
 	session.SetSyncTimeout(time.Minute)
 	session.SetSocketTimeout(time.Minute)
