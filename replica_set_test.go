@@ -48,9 +48,9 @@ func TestNewListenerZeroZeroRandomPort(t *testing.T) {
 
 func TestNewListenerError(t *testing.T) {
 	t.Parallel()
-	r := &ReplicaSet{PortStart: 1, PortEnd: 1}
+	r := &ReplicaSet{PortStart: 1, PortEnd: 0}
 	_, err := r.newListener()
-	expected := "could not find a free port in range 1-1"
+	expected := "could not find a free port in range 1-0"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("did not get expected error, got: %s", err)
 	}
