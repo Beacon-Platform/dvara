@@ -9,7 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func TestStopNodeInReplica(t *testing.T) {
+func DisabledTestStopNodeInReplica(t *testing.T) {
 	t.Parallel()
 	h := NewReplicaSetHarness(2, t)
 	defer h.Stop()
