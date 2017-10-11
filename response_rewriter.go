@@ -35,64 +35,35 @@ type ProxyQuery struct {
 }
 
 // Proxy proxies an OpQuery and a corresponding response.
-func (p *ProxyQuery) Proxy(
-	h *messageHeader,
-	client io.ReadWriter,
-	server io.ReadWriter,
-	lastError *LastError,
-) error {
+func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 
 	// https://github.com/mongodb/mongo/search?q=lastError.disableForCommand
 	// Shows the logic we need to be in sync with. Unfortunately it isn't a
 	// simple check to determine this, and may change underneath us at the mongo
 	// layer.
 	resetLastError := true
-
-	parts := [][]byte{h.ToWire()}
-
-	var flags [4]byte
-	if _, err := io.ReadFull(client, flags[:]); err != nil {
-		corelog.LogError("error", err)
-		return err
+	fullCollectionName, err1 := message.GetFullCollectionName()
+	if err1 != nil {
+		return err1
 	}
-	parts = append(parts, flags[:])
-
-	fullCollectionName, err := readCString(client)
-	if err != nil {
-		corelog.LogError("error", err)
-		return err
+	parts, err2 := message.GetParts()
+	if err2 != nil {
+		return err2
 	}
-	parts = append(parts, fullCollectionName)
 
 	var rewriter responseRewriter
 	if *proxyAllQueries || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
-		var twoInt32 [8]byte
-		if _, err := io.ReadFull(client, twoInt32[:]); err != nil {
-			corelog.LogError("error", err)
-			return err
+		q, err3 := message.GetQuery()
+		if err3 != nil {
+			return err3
 		}
-		parts = append(parts, twoInt32[:])
-
-		queryDoc, err := readDocument(client)
-		if err != nil {
-			corelog.LogError("error", err)
-			return err
-		}
-		parts = append(parts, queryDoc)
-
-		var q bson.D
-		if err := bson.Unmarshal(queryDoc, &q); err != nil {
-			corelog.LogError("error", err)
-			return err
-		}
-
 		if hasKey(q, "getLastError") {
 			return p.GetLastErrorRewriter.Rewrite(
-				h,
+				message.header,
 				parts,
-				client,
-				server,
-				lastError,
+				message.client,
+				message.server,
+				message.lastError,
 			)
 		}
 
@@ -110,14 +81,14 @@ func (p *ProxyQuery) Proxy(
 		}
 	}
 
-	if resetLastError && lastError.Exists() {
+	if resetLastError && message.lastError.Exists() {
 		corelog.LogInfoMessage("reset getLastError cache")
-		lastError.Reset()
+		message.lastError.Reset()
 	}
 
 	var written int
 	for _, b := range parts {
-		n, err := server.Write(b)
+		n, err := message.server.Write(b)
 		if err != nil {
 			corelog.LogError("error", err)
 			return err
@@ -125,20 +96,20 @@ func (p *ProxyQuery) Proxy(
 		written += n
 	}
 
-	pending := int64(h.MessageLength) - int64(written)
-	if _, err := io.CopyN(server, client, pending); err != nil {
+	pending := int64(message.header.MessageLength) - int64(written)
+	if _, err := io.CopyN(message.server, message.client, pending); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
 
 	if rewriter != nil {
-		if err := rewriter.Rewrite(client, server); err != nil {
+		if err := rewriter.Rewrite(message.client, message.server); err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := copyMessage(client, server); err != nil {
+	if err := copyMessage(message.client, message.server); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
