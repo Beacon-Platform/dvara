@@ -1,0 +1,33 @@
+image: partlab/ubuntu-golang
+
+variables:
+  GOPATH: "$HOME/go"
+
+before_script:
+  # install go compiler if not available
+  - 'which go || ( apt-get update -y && apt-get install golang -y )'
+  
+  # install mongod if not available
+  - 'which mongod || ( apt-get update -y && apt-get install mongodb-server -y )'
+  
+  # set up GOPATH
+  - mkdir -p "$GOPATH/src"
+  - ln -s $PWD "$GOPATH/src/dvara"
+  
+  # install the package
+  - cd "$GOPATH/src/dvara"
+  - go install
+
+env-info:
+  script:
+    - hostname
+    - uname -a
+    - go version
+    - mongod --version
+    - env
+    - cat /etc/hosts
+    - ifconfig -a
+
+dvara-test:
+  script:
+    - go test -v
