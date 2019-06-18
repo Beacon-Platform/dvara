@@ -2,6 +2,7 @@
 package dvara
 
 import (
+  "crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -47,6 +48,9 @@ type ReplicaSet struct {
 	// "0.0.0.0" means public service, "127.0.0.1" means localhost only.
 	ListenAddr string
 
+  // TLS listener config if SSL is enabled
+  TLSConfig *tls.Config
+
 	// Maximum number of connections that will be established to each mongo node.
 	MaxConnections uint
 
@@ -83,13 +87,16 @@ type ReplicaSet struct {
 	// will be used
 	Name string
 
-	// Username is the username used to connect to the server for retrieving replica state.
-	Username string
-
-	// Password is the password used to connect to the server for retrieving replica state.
-	Password string
+  // Credentials to use to login to the backend server
+  Cred Credential
 
 	restarter *sync.Once
+
+  // TLS config to use to dial to the backend server, nil if no TLS
+  BackendTLSConfig *tls.Config
+
+  // Health check TLS config to use if the listen socket is setup to use TLS
+  HealthCheckTLSConfig *tls.Config
 }
 
 func (r *ReplicaSet) Start() error {
@@ -107,7 +114,14 @@ func (r *ReplicaSet) proxyAddr(l net.Listener) string {
 
 func (r *ReplicaSet) newListener() (net.Listener, error) {
 	for i := r.PortStart; i <= r.PortEnd; i++ {
-		listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", r.ListenAddr, i))
+    var listener net.Listener
+    var err error
+    laddr := fmt.Sprintf("%s:%d", r.ListenAddr, i)
+    if r.TLSConfig != nil {
+      listener, err = tls.Listen("tcp", laddr, r.TLSConfig)
+    } else {
+      listener, err = net.Listen("tcp", laddr)
+    }
 		if err == nil {
 			return listener, nil
 		}

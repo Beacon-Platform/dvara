@@ -57,7 +57,7 @@ func TestFilterRSStatus(t *testing.T) {
 	for _, c := range cases {
 		response, err := filterReplGetStatus(c.A, nil)
 		if !sameRSMembers(response, c.B) || err != nil {
-			t.Fatalf("failed %s with input %s response %s expected response %s", c.Name, c.A, response, c.B)
+			t.Fatalf("failed %s with input %v response %v expected response %v", c.Name, c.A, response, c.B)
 		}
 	}
 }
@@ -307,7 +307,8 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 	t.Parallel()
 	mgo := mgotest.NewStartedServer(t)
 	mgo.Stop()
-	_, err := NewReplicaSetState("", "", mgo.URL())
+  cred := Credential{}
+	_, err := NewReplicaSetState(cred, mgo.URL(), nil)
 	const expected = "no reachable servers"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("unexpected error: %s", err)
@@ -323,7 +324,8 @@ func TestReplicaStateFailsFast(t *testing.T) {
 	err = server.Start()
 	if err != nil { t.Fatal(err) }
 
-	_, err = NewReplicaSetState("", "", listener.Addr().String())
+  cred := Credential{}
+	_, err = NewReplicaSetState(cred, listener.Addr().String(), nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
