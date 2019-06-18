@@ -182,6 +182,7 @@ func (socket *mongoSocket) Login(cred Credential) error {
     err = socket.loginClassic(cred)
   case "MONGODB-X509":
     err = socket.loginX509(cred)
+    return err
   default:
     err = errors.New("Unknown authentication mechanism: "+cred.Mechanism)
     return err
@@ -217,5 +218,8 @@ func (socket *mongoSocket) Login(cred Credential) error {
 	if err != nil {
 		return err
 	}
+  if !res.Ok {
+    return errors.New(res.ErrMsg)
+  }
 	return err
 }
