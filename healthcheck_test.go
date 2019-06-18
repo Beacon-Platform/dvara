@@ -37,7 +37,7 @@ func TestEnsureRestartIsCalled(t *testing.T) {
 	hc.Cancel = true
 
 	if frs.handleFailureCalled == false {
-		t.Fatalf("Restart function not called :( %s", frs)
+		t.Fatalf("Restart function not called :( %v )", frs)
 	}
 
 }
@@ -56,7 +56,7 @@ func TestEnsureRestartIsNotCalled(t *testing.T) {
 	hc.Cancel = true
 
 	if frs.handleFailureCalled == true {
-		t.Fatalf("Restart function not called :( %s", frs)
+		t.Fatalf("Restart function not called :( %v )", frs)
 	}
 
 }
@@ -68,16 +68,16 @@ func TestChecksWithReplicaSets(t *testing.T) {
 	rs := mgotest.NewReplicaSet(3, t)
 	defer rs.Stop()
 
-	if err := checkReplSetStatus(rs.Addrs(), "rs"); err != nil {
+	if err := checkReplSetStatus(rs.Addrs(), "rs", nil); err != nil {
 		t.Error("check should pass if all members are in the replica set:", err)
 	}
-	if err := checkReplSetStatus([]string{standalone.URL()}, "rs"); err == nil {
+	if err := checkReplSetStatus([]string{standalone.URL()}, "rs", nil); err == nil {
 		t.Error("expected failure if single server running in standalone")
 	}
-	if err := checkReplSetStatus(append(rs.Addrs(), standalone.URL()), "rs"); err != nil {
+	if err := checkReplSetStatus(append(rs.Addrs(), standalone.URL()), "rs", nil); err != nil {
 		t.Error("check should ignore standalone if there are other healthy members:", err)
 	}
-	if err := checkReplSetStatus(rs.Addrs(), "rs-alt"); err == nil {
+	if err := checkReplSetStatus(rs.Addrs(), "rs-alt", nil); err == nil {
 		t.Error("check should fail if members are in a different replica set")
 	}
 }
