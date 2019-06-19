@@ -17,8 +17,13 @@ var (
 	proxyAllQueries = flag.Bool(
 		"dvara.proxy-all",
 		false,
-		"if true all queries will be proxied and logger",
+		"if true all queries will be proxied and logged",
 	)
+  readOnly = flag.Bool(
+    "dvara.readonly",
+    false,
+    "if true only readonly queries will be allowed",
+  )
 
 	adminCollectionName = []byte("admin.$cmd\000")
 	cmdCollectionSuffix = []byte(".$cmd\000")
@@ -48,22 +53,23 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 	}
 
 	var rewriter responseRewriter
-	if *proxyAllQueries || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
+	if *proxyAllQueries || *readOnly || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
 		q, err3 := message.GetQuery()
 		if err3 != nil {
 			return err3
 		}
 
-    // must get parts after GetQuery since it pushes onto the parts it has read
-    parts, _ := message.GetParts()
+    if *readOnly {
+      if hasKey(*q, "insert") || hasKey(*q, "delete") || hasKey(*q, "update") {
+        message.lastError.NewError("Readonly database", 66)
+        err := p.GetLastErrorRewriter.Rewrite(message)
+        message.lastError.Reset()
+        return err
+      }
+    }
+
 		if hasKey(*q, "getLastError") {
-			return p.GetLastErrorRewriter.Rewrite(
-				message.header,
-				parts,
-				message.client,
-				message.server,
-				message.lastError,
-			)
+			return p.GetLastErrorRewriter.Rewrite(message)
 		}
 
 		if hasKey(*q, "isMaster") {
@@ -138,6 +144,30 @@ func (l *LastError) Reset() {
 	l.rest.Reset()
 }
 
+// Creates an error
+func (l *LastError) NewError(msg string, code int) error {
+  errDoc := bson.M{"$err": msg, "code": code}
+  data, err := bson.Marshal(errDoc)
+  if err != nil {
+    return err
+  }
+  l.rest.Reset()
+  if _, err = l.rest.Write([]byte{2,0,0,0, 0,0,0,0,0,0,0,0, 0,0,0,0, 1,0,0,0}); err != nil {
+    return err
+  }
+  if _, err = l.rest.Write(data); err != nil {
+    return err
+  }
+  dataLen := int32(l.rest.Len())
+  l.header = &messageHeader{
+    MessageLength: headerLen+dataLen,
+    RequestID: 1,
+    ResponseTo: 0,
+    OpCode: OpReply,
+  }
+  return nil
+}
+
 // GetLastErrorRewriter handles getLastError requests and proxies, caches or
 // sends cached responses as necessary.
 type GetLastErrorRewriter struct {
@@ -145,12 +175,13 @@ type GetLastErrorRewriter struct {
 
 // Rewrite handles getLastError requests.
 func (r *GetLastErrorRewriter) Rewrite(
-	h *messageHeader,
-	parts [][]byte,
-	client io.ReadWriter,
-	server io.ReadWriter,
-	lastError *LastError,
+	m *ProxiedMessage,
 ) error {
+  h := m.header
+  client := m.client
+  server := m.server
+  lastError := m.lastError
+  parts, _ := m.GetParts()
 
 	if !lastError.Exists() {
 		// We're going to be performing a real getLastError query and caching the

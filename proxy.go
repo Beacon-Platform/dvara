@@ -161,13 +161,15 @@ func (p *Proxy) serverCloseErrorHandler(err error) {
 // proxyMessage proxies a message, possibly it's response, and possibly a
 // follow up call.
 func (p *Proxy) proxyMessage(message *ProxiedMessage) error {
+  h := message.header
+
 	deadline := time.Now().Add(p.ReplicaSet.MessageTimeout)
 	message.server.SetDeadline(deadline)
 	message.client.SetDeadline(deadline)
 
 	// OpQuery may need to be transformed and need special handling in order to
 	// make the proxy transparent.
-	if message.header.OpCode == OpQuery {
+	if h.OpCode == OpQuery {
 		stats.BumpSum(p.stats, "message.with.response", 1)
 		return p.ReplicaSet.ProxyQuery.Proxy(message)
 	}
@@ -180,18 +182,18 @@ func (p *Proxy) proxyMessage(message *ProxiedMessage) error {
 	}
 
 	// For other Ops we proxy the header & raw body over.
-	if err := message.header.WriteTo(message.server); err != nil {
+	if err := h.WriteTo(message.server); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
 
-	if _, err := io.CopyN(message.server, message.client, int64(message.header.MessageLength-headerLen)); err != nil {
+	if _, err := io.CopyN(message.server, message.client, int64(h.MessageLength-headerLen)); err != nil {
 		corelog.LogError("error", err)
 		return err
 	}
 
 	// For Ops with responses we proxy the raw response message over.
-	if message.header.OpCode.HasResponse() {
+	if h.OpCode.HasResponse() {
 		stats.BumpSum(p.stats, "message.with.response", 1)
 		if err := copyMessage(message.client, message.server); err != nil {
 			corelog.LogError("error", err)
@@ -279,7 +281,17 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
         extension.onHeader(&proxiedMessage)
       }
 
-			err := p.proxyMessage(&proxiedMessage)
+      var err error
+      if *readOnly && h.OpCode.IsMutation() {
+        err = lastError.NewError("Readonly database", 66)
+        if err == nil {
+          err = p.ReplicaSet.ProxyQuery.GetLastErrorRewriter.Rewrite(&proxiedMessage)
+          lastError.Reset()
+        }
+      } else {
+        err = p.proxyMessage(&proxiedMessage)
+      }
+
 			if err != nil {
 				p.serverPool.Discard(serverConn)
 				corelog.LogErrorMessage(fmt.Sprintf("Proxy message failed %s ", err))
