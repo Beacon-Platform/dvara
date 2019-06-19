@@ -271,14 +271,14 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 			return
 		}
 
-    proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
-		for _, extension := range p.extensions {
-			extension.onHeader(&proxiedMessage)
-		}
-
 		scht := stats.BumpTime(p.stats, "server.conn.held.time")
 		for {
 			// TODO: message processing handler
+      proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
+      for _, extension := range p.extensions {
+        extension.onHeader(&proxiedMessage)
+      }
+
 			err := p.proxyMessage(&proxiedMessage)
 			if err != nil {
 				p.serverPool.Discard(serverConn)

@@ -7,7 +7,7 @@ import (
   "crypto/tls"
   "crypto/x509"
   "encoding/pem"
-	"github.com/kirat-singh/dvara"
+	"dvara"
 	corelog "github.com/intercom/gocore/log"
   "strings"
 )

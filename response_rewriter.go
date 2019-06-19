@@ -46,10 +46,6 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 	if err1 != nil {
 		return err1
 	}
-	parts, err2 := message.GetParts()
-	if err2 != nil {
-		return err2
-	}
 
 	var rewriter responseRewriter
 	if *proxyAllQueries || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
@@ -57,7 +53,10 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 		if err3 != nil {
 			return err3
 		}
-		if hasKey(q, "getLastError") {
+
+    // must get parts after GetQuery since it pushes onto the parts it has read
+    parts, _ := message.GetParts()
+		if hasKey(*q, "getLastError") {
 			return p.GetLastErrorRewriter.Rewrite(
 				message.header,
 				parts,
@@ -67,17 +66,17 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 			)
 		}
 
-		if hasKey(q, "isMaster") {
+		if hasKey(*q, "isMaster") {
 			rewriter = p.IsMasterResponseRewriter
 		}
-		if bytes.Equal(adminCollectionName, fullCollectionName) && hasKey(q, "replSetGetStatus") {
+		if bytes.Equal(adminCollectionName, fullCollectionName) && hasKey(*q, "replSetGetStatus") {
 			rewriter = p.ReplSetGetStatusResponseRewriter
 		}
 
 		if rewriter != nil {
 			// If forShell is specified, we don't want to reset the last error. See
 			// comment above around resetLastError for details.
-			resetLastError = hasKey(q, "forShell")
+			resetLastError = hasKey(*q, "forShell")
 		}
 	}
 
@@ -85,6 +84,11 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 		corelog.LogInfoMessage("reset getLastError cache")
 		message.lastError.Reset()
 	}
+
+  parts, err2 := message.GetParts()
+  if err2 != nil {
+    return err2
+  }
 
 	var written int
 	for _, b := range parts {

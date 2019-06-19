@@ -45,6 +45,7 @@ func Main() error {
   mongoSSLPEMKeyFile := flag.String("mongo_ssl_pem_key_file", "", "PEM Cert and private Key file to present to the mongo servers")
   mechanism := flag.String("mechanism", "", "Login mechanism")
   sslSkipVerify := flag.Bool("ssl_skip_verify", false, "Skip SSL hostname verification")
+  logQueries := flag.Bool("log_queries", false, "Log all queries")
 
 	flag.Parse()
 	statsClient := NewDataDogStatsDClient(*metricsAddress, "replica:"+*replicaName)
@@ -102,14 +103,21 @@ func Main() error {
 	})
 	corelog.LogInfoMessage("starting with command line arguments", startupOptions...)
 
-	// Wrapper for inject
+  // configure extensions
+  var extensions = []dvara.ProxyExtension{}
+  if *logQueries {
+    extensions = append(extensions, &dvara.QueryLogger{})
+  }
+  extensionStackInstance := dvara.NewProxyExtensionStack(extensions)
+
+  // Wrapper for inject
 	log := Logger{}
 
 	var graph inject.Graph
 	err := graph.Provide(
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: &statsClient},
-		&inject.Object{Value: &ExtensionStackInstance},
+		&inject.Object{Value: &extensionStackInstance},
 		&inject.Object{Value: stateManager},
 	)
 	if err != nil {

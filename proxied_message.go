@@ -32,47 +32,55 @@ func NewProxiedMessage(
 }
 
 func (message* ProxiedMessage) GetParts() ([][]byte, error) {
-	if message.err != nil {
-		return nil, message.err
-	} else if message.parts == nil {
-		message.err = message.loadParts()
+  if message.parts == nil {
+		message.loadParts()
 	}
 	return message.parts, message.err
 }
 
 func (message* ProxiedMessage) GetFullCollectionName() ([]byte, error) {
-	if message.err != nil {
-		return nil, message.err
-	} else if message.fullCollectionName == nil {
-		message.err = message.loadParts()
-	}
+  if message.fullCollectionName == nil {
+    message.loadParts()
+  }
 	return message.fullCollectionName, message.err
 }
 
 func (message* ProxiedMessage) GetQueryDoc() ([]byte, error) {
-	if message.err != nil {
-		return nil, message.err
-	} else if message.queryDoc == nil {
-		message.err = message.loadParts()
-	}
+  if message.queryDoc == nil {
+    message.loadQuery()
+  }
 	return message.queryDoc, message.err
 }
 
-func (message* ProxiedMessage) GetQuery() (bson.D, error) {
-	if message.err != nil {
-		return nil, message.err
-	} else if message.query == nil {
-		message.err = message.loadQuery()
-	}
-	return message.query, message.err
+func (message* ProxiedMessage) GetQuery() (*bson.D, error) {
+  if message.query == nil {
+    if message.queryDoc == nil {
+      if message.header.OpCode != OpQuery {
+        return nil, nil
+      }
+      if _, err := message.GetQueryDoc(); err != nil {
+        return nil, err
+      }
+    }
+    message.err = bson.Unmarshal(message.queryDoc, &message.query);
+  }
+  return &message.query, message.err
 }
 
 func (message* ProxiedMessage) loadParts() error {
+  if message.parts != nil {
+    return nil
+  }
+  if message.err != nil {
+    return message.err
+  }
+
 	message.parts = [][]byte{message.header.ToWire()}
 	var err error
 
 	var flags [4]byte
 	if _, err := io.ReadFull(message.client, flags[:]); err != nil {
+    message.err = err
 		corelog.LogError("error", err)
 		return err
 	}
@@ -80,40 +88,37 @@ func (message* ProxiedMessage) loadParts() error {
 
 	message.fullCollectionName, err = readCString(message.client)
 	if err != nil {
+    message.err = err
 		corelog.LogError("error", err)
 		return err
 	}
 	message.parts = append(message.parts, message.fullCollectionName)
 
-	var twoInt32 [8]byte
-	if _, err := io.ReadFull(message.client, twoInt32[:]); err != nil {
-		corelog.LogError("error", err)
-		return err
-	}
-	message.parts = append(message.parts, twoInt32[:])
-
-	message.queryDoc, err = readDocument(message.client)
-	if err != nil {
-		corelog.LogError("error", err)
-		return err
-	}
-	message.parts = append(message.parts, message.queryDoc)
 	return nil
 }
 
 func (message* ProxiedMessage) loadQuery() error {
-	if message.err != nil {
-		return message.err
-	}	else {
-	  var queryDoc []byte
-		queryDoc, message.err = message.GetQueryDoc()
-		if message.err != nil {
-			return message.err
-		}
-	  message.err = bson.Unmarshal(queryDoc, &message.query);
-	  if message.err != nil {
-			return message.err
-	  }
+  if err := message.loadParts(); err != nil {
+		return err
 	}
-	return nil
+
+  if message.queryDoc == nil {
+    var twoInt32 [8]byte
+    if _, err := io.ReadFull(message.client, twoInt32[:]); err != nil {
+      message.err = err
+      corelog.LogError("error", err)
+      return err
+    }
+    message.parts = append(message.parts, twoInt32[:])
+
+    queryDoc, err := readDocument(message.client)
+    if err != nil {
+      message.err = err
+      corelog.LogError("error", err)
+      return err
+    }
+    message.queryDoc = queryDoc
+    message.parts = append(message.parts, message.queryDoc)
+  }
+  return nil
 }

@@ -48,11 +48,19 @@ type QueryLogger struct {
 	*BaseProxyExtension
 }
 
-func (extension *QueryLogger) onHeader(message *ProxiedMessage) bool {
-	query, err := message.GetQuery()
-	if (err != nil) {
-		logMessage := fmt.Sprintf("message: {%s}", query)
-		corelog.LogInfo(logMessage);
+func (extension *QueryLogger) onHeader(m *ProxiedMessage) bool {
+	query, err := m.GetQuery()
+	if err == nil {
+    var logMessage string
+
+    collName := m.fullCollectionName
+    if collName != nil && len(collName) > 0 && query != nil {
+      collName = collName[:len(collName)-1]
+      logMessage = fmt.Sprintf("message: op: %v coll: %s {%v}", m.header.OpCode, collName, *query)
+    } else {
+      logMessage = fmt.Sprintf("message: op: %v", m.header.OpCode)
+    }
+		corelog.LogInfo(logMessage)
 	}
 	return true;
 }
