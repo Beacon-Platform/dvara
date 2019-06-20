@@ -382,6 +382,7 @@ func TestProxyQuery(t *testing.T) {
 	ensure.Nil(t, startstop.Start(objects, &log))
 	defer startstop.Stop(objects, &log)
 	fmt.Printf("Defining cases\n")
+  hdr := &messageHeader{OpCode: OpQuery}
 	cases := []struct {
 		Name   string
 		Header *messageHeader
@@ -408,7 +409,7 @@ func TestProxyQuery(t *testing.T) {
 		},
 		{
 			Name:   "EOF while reading skip/return",
-			Header: &messageHeader{},
+			Header: hdr,
 			Client: fakeReadWriter{
 				Reader: bytes.NewReader(
 					append(
@@ -421,7 +422,7 @@ func TestProxyQuery(t *testing.T) {
 		},
 		{
 			Name:   "EOF while reading query document",
-			Header: &messageHeader{},
+			Header: hdr,
 			Client: fakeReadWriter{
 				Reader: io.MultiReader(
 					bytes.NewReader([]byte{0, 0, 0, 0}), // flags int32 before collection name
@@ -438,7 +439,7 @@ func TestProxyQuery(t *testing.T) {
 		},
 		{
 			Name:   "error while unmarshaling query document",
-			Header: &messageHeader{},
+			Header: hdr,
 			Client: fakeReadWriter{
 				Reader: io.MultiReader(
 					bytes.NewReader([]byte{0, 0, 0, 0}), // flags int32 before collection name
@@ -457,7 +458,8 @@ func TestProxyQuery(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		message := NewProxiedMessage(c.Header, c.Client, nil, nil)
+    var lastError LastError
+		message := NewProxiedMessage(c.Header, c.Client, nil, &lastError)
 		err := p.Proxy(&message)
 		if err == nil || !strings.Contains(err.Error(), c.Error) {
 			t.Fatalf("did not find expected error for %s, instead found %s", c.Name, err)

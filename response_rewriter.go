@@ -68,16 +68,19 @@ func (p *ProxyQuery) Proxy(message *ProxiedMessage) error {
 			}
 		}
 
-		if hasKey(*q, "getLastError") {
-			return p.GetLastErrorRewriter.Rewrite(message)
-		}
+    if q != nil {
+      if hasKey(*q, "getLastError") {
+        return p.GetLastErrorRewriter.Rewrite(message)
+      }
 
-		if hasKey(*q, "isMaster") {
-			rewriter = p.IsMasterResponseRewriter
-		}
-		if bytes.Equal(adminCollectionName, fullCollectionName) && hasKey(*q, "replSetGetStatus") {
-			rewriter = p.ReplSetGetStatusResponseRewriter
-		}
+      if hasKey(*q, "isMaster") {
+        rewriter = p.IsMasterResponseRewriter
+      }
+
+      if bytes.Equal(adminCollectionName, fullCollectionName) && hasKey(*q, "replSetGetStatus") {
+        rewriter = p.ReplSetGetStatusResponseRewriter
+      }
+    }
 
 		if rewriter != nil {
 			// If forShell is specified, we don't want to reset the last error. See
