@@ -146,14 +146,14 @@ func newManager() *StateManager {
 }
 
 func newManagerWithReplicaSet(replicaSet *ReplicaSet) *StateManager {
-    extensionStack := NewProxyExtensionStack([]ProxyExtension{})
+	extensionStack := NewProxyExtensionStack([]ProxyExtension{})
 	return &StateManager{
-		RWMutex:     &sync.RWMutex{},
-		replicaSet:  replicaSet,
-		baseAddrs:   replicaSet.Addrs,
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
-		proxies:     make(map[string]*Proxy),
+		RWMutex:        &sync.RWMutex{},
+		replicaSet:     replicaSet,
+		baseAddrs:      replicaSet.Addrs,
+		proxyToReal:    make(map[string]string),
+		realToProxy:    make(map[string]string),
+		proxies:        make(map[string]*Proxy),
 		ExtensionStack: &extensionStack,
 	}
 }

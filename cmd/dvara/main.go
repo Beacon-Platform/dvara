@@ -1,7 +1,7 @@
 package main
 
 import (
-  "crypto/tls"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"os"
@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"gitlab.wsq.io/beacon-ext/dvara"
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
-	"dvara"
 	corelog "github.com/intercom/gocore/log"
 )
 
@@ -41,11 +41,11 @@ func Main() error {
 	replicaSetName := flag.String("replica_set_name", "", "Replica set name, used to filter hosts runnning other replica sets")
 	healthCheckInterval := flag.Duration("healthcheckinterval", 5*time.Second, "How often to run the health check")
 	failedHealthCheckThreshold := flag.Uint("failedhealthcheckthreshold", 3, "How many failed checks before a restart")
-  sslPEMKeyFile := flag.String("ssl_pem_key_file", "", "PEM Cert and Private Key file for enabling TLS on the listen sockets")
-  mongoSSLPEMKeyFile := flag.String("mongo_ssl_pem_key_file", "", "PEM Cert and private Key file to present to the mongo servers")
-  mechanism := flag.String("mechanism", "", "Login mechanism")
-  sslSkipVerify := flag.Bool("ssl_skip_verify", false, "Skip SSL hostname verification")
-  logQueries := flag.Bool("log_queries", false, "Log all queries")
+	sslPEMKeyFile := flag.String("ssl_pem_key_file", "", "PEM Cert and Private Key file for enabling TLS on the listen sockets")
+	mongoSSLPEMKeyFile := flag.String("mongo_ssl_pem_key_file", "", "PEM Cert and private Key file to present to the mongo servers")
+	mechanism := flag.String("mechanism", "", "Login mechanism")
+	sslSkipVerify := flag.Bool("ssl_skip_verify", false, "Skip SSL hostname verification")
+	logQueries := flag.Bool("log_queries", false, "Log all queries")
 
 	flag.Parse()
 	statsClient := NewDataDogStatsDClient(*metricsAddress, "replica:"+*replicaName)
@@ -55,24 +55,24 @@ func Main() error {
 	corelog.SetStandardFields("replicaset", *replicaName)
 	corelog.UseTimestamp(true)
 
-  cred := dvara.Credential{
-    Username: *username,
-    Password: *password,
-    Mechanism: *mechanism,
-  }
-  sslConfig, sslConfigErr := NewSSLConfig(*sslPEMKeyFile, *mongoSSLPEMKeyFile, *sslSkipVerify, &cred)
-  if sslConfigErr != nil {
-    return sslConfigErr
-  }
+	cred := dvara.Credential{
+		Username:  *username,
+		Password:  *password,
+		Mechanism: *mechanism,
+	}
+	sslConfig, sslConfigErr := NewSSLConfig(*sslPEMKeyFile, *mongoSSLPEMKeyFile, *sslSkipVerify, &cred)
+	if sslConfigErr != nil {
+		return sslConfigErr
+	}
 
-  // for the health checks
-  var healthCheckTLSConfig *tls.Config
-  if sslConfig.tlsConfig != nil {
-    // ignore ssl verification for the health checker since we connect via localhost
-    healthCheckTLSConfig = &tls.Config{
-      InsecureSkipVerify: true,
-    }
-  }
+	// for the health checks
+	var healthCheckTLSConfig *tls.Config
+	if sslConfig.tlsConfig != nil {
+		// ignore ssl verification for the health checker since we connect via localhost
+		healthCheckTLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
 
 	replicaSet := dvara.ReplicaSet{
 		Addrs:                   *addrs,
@@ -88,14 +88,14 @@ func Main() error {
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Cred:                    cred,
 		Name:                    *replicaSetName,
-    TLSConfig:               sslConfig.tlsConfig,
-    BackendTLSConfig:        sslConfig.mongoTLSConfig,
-    HealthCheckTLSConfig:    healthCheckTLSConfig,
+		TLSConfig:               sslConfig.tlsConfig,
+		BackendTLSConfig:        sslConfig.mongoTLSConfig,
+		HealthCheckTLSConfig:    healthCheckTLSConfig,
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
 
 	// Log command line args
-	startupOptions := []interface{} {}
+	startupOptions := []interface{}{}
 	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
 		if flag.Name != "password" {
 			startupOptions = append(startupOptions, flag.Name, flag.Value.String())
@@ -103,14 +103,14 @@ func Main() error {
 	})
 	corelog.LogInfoMessage("starting with command line arguments", startupOptions...)
 
-  // configure extensions
-  var extensions = []dvara.ProxyExtension{}
-  if *logQueries {
-    extensions = append(extensions, &dvara.QueryLogger{})
-  }
-  extensionStackInstance := dvara.NewProxyExtensionStack(extensions)
+	// configure extensions
+	var extensions = []dvara.ProxyExtension{}
+	if *logQueries {
+		extensions = append(extensions, &dvara.QueryLogger{})
+	}
+	extensionStackInstance := dvara.NewProxyExtensionStack(extensions)
 
-  // Wrapper for inject
+	// Wrapper for inject
 	log := Logger{}
 
 	var graph inject.Graph

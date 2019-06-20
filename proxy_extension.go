@@ -1,8 +1,8 @@
 package dvara
 
-import(
-	corelog "github.com/intercom/gocore/log"
+import (
 	"fmt"
+	corelog "github.com/intercom/gocore/log"
 )
 
 type ProxyExtension interface {
@@ -26,22 +26,22 @@ func (manager *ProxyExtensionStack) GetExtensions() []ProxyExtension {
 	return manager.extensions
 }
 
-type BaseProxyExtension struct {}
+type BaseProxyExtension struct{}
 
 func (extension *BaseProxyExtension) onConnection(*ProxiedMessage) bool {
-  return true;
+	return true
 }
 
 func (extension *BaseProxyExtension) onHeader(*ProxiedMessage) bool {
-	return true;
+	return true
 }
 
 func (extension *BaseProxyExtension) onMessage(*ProxiedMessage) bool {
-	return true;
+	return true
 }
 
 func (extension *BaseProxyExtension) onResponse(*ProxiedMessage) bool {
-	return true;
+	return true
 }
 
 type QueryLogger struct {
@@ -51,16 +51,16 @@ type QueryLogger struct {
 func (extension *QueryLogger) onHeader(m *ProxiedMessage) bool {
 	query, err := m.GetQuery()
 	if err == nil {
-    var logMessage string
+		var logMessage string
 
-    collName := m.fullCollectionName
-    if collName != nil && len(collName) > 0 && query != nil {
-      collName = collName[:len(collName)-1]
-      logMessage = fmt.Sprintf("message: op: %v coll: %s {%v}", m.header.OpCode, collName, *query)
-    } else {
-      logMessage = fmt.Sprintf("message: op: %v", m.header.OpCode)
-    }
+		collName := m.fullCollectionName
+		if collName != nil && len(collName) > 0 && query != nil {
+			collName = collName[:len(collName)-1]
+			logMessage = fmt.Sprintf("message: op: %v coll: %s {%v}", m.header.OpCode, collName, *query)
+		} else {
+			logMessage = fmt.Sprintf("message: op: %v", m.header.OpCode)
+		}
 		corelog.LogInfo(logMessage)
 	}
-	return true;
+	return true
 }

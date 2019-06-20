@@ -1,10 +1,10 @@
 package dvara
 
 import (
-  "crypto/tls"
+	"crypto/tls"
 	"errors"
 	"fmt"
-  "net"
+	"net"
 	"strings"
 	"time"
 
@@ -109,11 +109,11 @@ func checkReplSetStatus(addrs []string, replicaSetName string, tlsConfig *tls.Co
 		Direct:         true,
 		ReplicaSetName: replicaSetName,
 	}
-  if tlsConfig != nil {
-    info.DialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
-      return tls.Dial("tcp", addr.String(), tlsConfig)
-    }
-  }
+	if tlsConfig != nil {
+		info.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
+			return tls.Dial("tcp", addr.String(), tlsConfig)
+		}
+	}
 
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {

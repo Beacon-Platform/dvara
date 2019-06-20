@@ -1,7 +1,7 @@
 package dvara
 
 import (
-  "crypto/tls"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -30,10 +30,10 @@ var (
 type Proxy struct {
 	ReplicaSet     *ReplicaSet
 	ClientListener net.Listener // Listener for incoming client connections
-  Cred           Credential
-	ProxyAddr      string       // Address for incoming client connections
-	MongoAddr      string       // Address for destination Mongo server
-  TLSConfig      *tls.Config  // TLS config for backend, nil if no TLS
+	Cred           Credential
+	ProxyAddr      string      // Address for incoming client connections
+	MongoAddr      string      // Address for destination Mongo server
+	TLSConfig      *tls.Config // TLS config for backend, nil if no TLS
 
 	wg                      sync.WaitGroup
 	closed                  chan struct{}
@@ -120,14 +120,14 @@ func (p *Proxy) AuthConn(conn net.Conn) error {
 func (p *Proxy) newServerConn() (io.Closer, error) {
 	retrySleep := 50 * time.Millisecond
 	for retryCount := 7; retryCount > 0; retryCount-- {
-    dialer := &net.Dialer{Timeout: time.Second}
-    var err error
-    var c net.Conn
-    if p.TLSConfig == nil {
-      c, err = dialer.Dial("tcp", p.MongoAddr)
-    } else {
-      c, err = tls.DialWithDialer(dialer, "tcp", p.MongoAddr, p.TLSConfig)
-    }
+		dialer := &net.Dialer{Timeout: time.Second}
+		var err error
+		var c net.Conn
+		if p.TLSConfig == nil {
+			c, err = dialer.Dial("tcp", p.MongoAddr)
+		} else {
+			c, err = tls.DialWithDialer(dialer, "tcp", p.MongoAddr, p.TLSConfig)
+		}
 		if err == nil {
 			if len(p.Cred.Username) == 0 {
 				return c, nil
@@ -161,7 +161,7 @@ func (p *Proxy) serverCloseErrorHandler(err error) {
 // proxyMessage proxies a message, possibly it's response, and possibly a
 // follow up call.
 func (p *Proxy) proxyMessage(message *ProxiedMessage) error {
-  h := message.header
+	h := message.header
 
 	deadline := time.Now().Add(p.ReplicaSet.MessageTimeout)
 	message.server.SetDeadline(deadline)
@@ -276,21 +276,21 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 		scht := stats.BumpTime(p.stats, "server.conn.held.time")
 		for {
 			// TODO: message processing handler
-      proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
-      for _, extension := range p.extensions {
-        extension.onHeader(&proxiedMessage)
-      }
+			proxiedMessage := NewProxiedMessage(h, c, serverConn, &lastError)
+			for _, extension := range p.extensions {
+				extension.onHeader(&proxiedMessage)
+			}
 
-      var err error
-      if *readOnly && h.OpCode.IsMutation() {
-        err = lastError.NewError("Readonly database", 66)
-        if err == nil {
-          err = p.ReplicaSet.ProxyQuery.GetLastErrorRewriter.Rewrite(&proxiedMessage)
-          lastError.Reset()
-        }
-      } else {
-        err = p.proxyMessage(&proxiedMessage)
-      }
+			var err error
+			if *readOnly && h.OpCode.IsMutation() {
+				err = lastError.NewError("Readonly database", 66)
+				if err == nil {
+					err = p.ReplicaSet.ProxyQuery.GetLastErrorRewriter.Rewrite(&proxiedMessage)
+					lastError.Reset()
+				}
+			} else {
+				err = p.proxyMessage(&proxiedMessage)
+			}
 
 			if err != nil {
 				p.serverPool.Discard(serverConn)

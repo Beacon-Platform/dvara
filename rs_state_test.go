@@ -1,10 +1,10 @@
 package dvara
 
 import (
-	"testing"
-	"sync/atomic"
 	"github.com/facebookgo/mgotest"
 	"net"
+	"sync/atomic"
+	"testing"
 )
 
 func TestFilterRSStatus(t *testing.T) {
@@ -307,7 +307,7 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 	t.Parallel()
 	mgo := mgotest.NewStartedServer(t)
 	mgo.Stop()
-  cred := Credential{}
+	cred := Credential{}
 	_, err := NewReplicaSetState(cred, mgo.URL(), nil)
 	const expected = "no reachable servers"
 	if err == nil || err.Error() != expected {
@@ -318,13 +318,17 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 func TestReplicaStateFailsFast(t *testing.T) {
 	t.Parallel()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := closedTCPServer{listener: listener}
 	defer server.Close()
 	err = server.Start()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 
-  cred := Credential{}
+	cred := Credential{}
 	_, err = NewReplicaSetState(cred, listener.Addr().String(), nil)
 	if err == nil {
 		t.Fatal("expected error")
@@ -356,8 +360,12 @@ func (server *closedTCPServer) CountAccepts() uint64 {
 func (server *closedTCPServer) acceptLoop() {
 	for {
 		conn, err := server.listener.Accept()
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 		atomic.AddUint64(&server.ops, 1)
-		if conn.Close() != nil { return }
+		if conn.Close() != nil {
+			return
+		}
 	}
 }

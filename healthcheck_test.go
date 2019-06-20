@@ -2,9 +2,9 @@ package dvara
 
 import (
 	"errors"
+	"github.com/facebookgo/mgotest"
 	"testing"
 	"time"
-	"github.com/facebookgo/mgotest"
 )
 
 type FakeReplicaSet struct {

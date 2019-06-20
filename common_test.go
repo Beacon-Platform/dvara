@@ -1,9 +1,9 @@
 package dvara
 
 import (
+	"strings"
 	"testing"
 	"time"
-	"strings"
 
 	"gopkg.in/mgo.v2"
 

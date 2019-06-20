@@ -3,13 +3,13 @@ package dvara
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
-	"net"
 	"time"
-	"fmt"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/facebookgo/ensure"
@@ -73,12 +73,12 @@ type fakeReadWriter struct {
 }
 
 // mock methods to enable net.Conn interface in fakeReadWriter
-func (conn fakeReadWriter) Close() error {return errors.New("Not implemented")}
-func (conm fakeReadWriter) LocalAddr() net.Addr {return nil}
-func (conn fakeReadWriter) RemoteAddr() net.Addr {return nil}
-func (conn fakeReadWriter) SetDeadline(t time.Time) error {return errors.New("Not implemented")}
-func (conn fakeReadWriter) SetReadDeadline(t time.Time) error {return errors.New("Not implemented")}
-func (conn fakeReadWriter) SetWriteDeadline(t time.Time) error {return errors.New("Not implemented")}
+func (conn fakeReadWriter) Close() error                       { return errors.New("Not implemented") }
+func (conm fakeReadWriter) LocalAddr() net.Addr                { return nil }
+func (conn fakeReadWriter) RemoteAddr() net.Addr               { return nil }
+func (conn fakeReadWriter) SetDeadline(t time.Time) error      { return errors.New("Not implemented") }
+func (conn fakeReadWriter) SetReadDeadline(t time.Time) error  { return errors.New("Not implemented") }
+func (conn fakeReadWriter) SetWriteDeadline(t time.Time) error { return errors.New("Not implemented") }
 
 func TestResponseRWReadOne(t *testing.T) {
 	t.Parallel()
@@ -381,7 +381,7 @@ func TestProxyQuery(t *testing.T) {
 	objects := graph.Objects()
 	ensure.Nil(t, startstop.Start(objects, &log))
 	defer startstop.Stop(objects, &log)
-    fmt.Printf("Defining cases\n")
+	fmt.Printf("Defining cases\n")
 	cases := []struct {
 		Name   string
 		Header *messageHeader
@@ -394,7 +394,7 @@ func TestProxyQuery(t *testing.T) {
 			Client: fakeReadWriter{
 				Reader: new(bytes.Buffer),
 			},
-			Error:  "EOF",
+			Error: "EOF",
 		},
 		{
 			Name:   "EOF while reading collection name",

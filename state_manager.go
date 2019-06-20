@@ -172,10 +172,10 @@ func (manager *StateManager) generateProxies(addresses ...string) ([]*Proxy, err
 			ReplicaSet:     manager.replicaSet,
 			ClientListener: listener,
 			ProxyAddr:      manager.replicaSet.proxyAddr(listener),
-      Cred:           manager.replicaSet.Cred,
+			Cred:           manager.replicaSet.Cred,
 			MongoAddr:      address,
 			extensions:     manager.ExtensionStack.GetExtensions(),
-      TLSConfig:      manager.replicaSet.BackendTLSConfig,
+			TLSConfig:      manager.replicaSet.BackendTLSConfig,
 		}
 
 		proxies = append(proxies, p)

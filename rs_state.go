@@ -1,10 +1,10 @@
 package dvara
 
 import (
-  "crypto/tls"
+	"crypto/tls"
 	"errors"
 	"fmt"
-  "net"
+	"net"
 	"sort"
 	"time"
 
@@ -31,29 +31,29 @@ type ReplicaSetState struct {
 func NewReplicaSetState(cred Credential, addr string, tlsConfig *tls.Config) (*ReplicaSetState, error) {
 	const TIMEOUT = 500 * time.Millisecond
 
-  mechanism := cred.Mechanism
-  source := cred.Source
-  if mechanism == "MONGODB-X509" {
-    source = "$external"
-  } else if source == "" {
-    source = "admin"
-  }
+	mechanism := cred.Mechanism
+	source := cred.Source
+	if mechanism == "MONGODB-X509" {
+		source = "$external"
+	} else if source == "" {
+		source = "admin"
+	}
 
 	info := &mgo.DialInfo{
-		Addrs:      []string{addr},
-		Username:   cred.Username,
-		Password:   cred.Password,
-    Source:     source,
-    Mechanism:  mechanism,
-		Direct:     true,
-		FailFast:   true,
-		Timeout:    TIMEOUT,
+		Addrs:     []string{addr},
+		Username:  cred.Username,
+		Password:  cred.Password,
+		Source:    source,
+		Mechanism: mechanism,
+		Direct:    true,
+		FailFast:  true,
+		Timeout:   TIMEOUT,
 	}
-  if tlsConfig != nil {
-    info.DialServer = func(addr* mgo.ServerAddr) (net.Conn, error) {
-      return tls.Dial("tcp", addr.String(), tlsConfig)
-    }
-  }
+	if tlsConfig != nil {
+		info.DialServer = func(addr *mgo.ServerAddr) (net.Conn, error) {
+			return tls.Dial("tcp", addr.String(), tlsConfig)
+		}
+	}
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
 		return nil, errNoReachableServers
