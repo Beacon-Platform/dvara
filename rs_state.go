@@ -18,6 +18,13 @@ import (
 
 const errNotReplSet = "not running with --replSet"
 
+const (
+  RS_PRIMARY = 1
+  RS_SECONDARY = 2
+  RS_ARBITER = 7
+  RS_DOWN = 8
+)
+
 var errNoReachableServers = errors.New("no reachable servers")
 var errRemovedReplica = errors.New("removed replica still present")
 
@@ -115,12 +122,14 @@ func (r *ReplicaSetState) Equal(o *ReplicaSetState) bool {
 // SameRS checks if the given replSetGetStatusResponse is the same as the one
 // we have.
 func (r *ReplicaSetState) SameRS(o *replSetGetStatusResponse) bool {
-	return sameRSMembers(r.lastRS, o)
+	res := sameRSMembers(r.lastRS, o)
+  return res
 }
 
 // SameIM checks if the given isMasterResponse is the same as the one we have.
 func (r *ReplicaSetState) SameIM(o *isMasterResponse) bool {
-	return sameIMMembers(r.lastIM, o)
+	res := sameIMMembers(r.lastIM, o)
+  return res
 }
 
 // Addrs returns the addresses of members in primary or secondary state.
@@ -195,10 +204,11 @@ func filterReplGetStatus(r *replSetGetStatusResponse, e error) (*replSetGetStatu
 	var validMembers []statusMember
 	if r != nil {
 		for _, element := range r.Members {
-			if element.State == ReplicaStatePrimary || element.State == ReplicaStateArbiter || element.State == ReplicaStateSecondary {
-				validMembers = append(validMembers, element)
-			}
-		}
+      switch element.StateCode {
+      case RS_PRIMARY, RS_ARBITER, RS_SECONDARY, RS_DOWN:
+        validMembers = append(validMembers, element)
+      }
+    }
 		r.Members = validMembers
 	}
 
@@ -236,9 +246,9 @@ func sameRSMembers(a *replSetGetStatusResponse, b *replSetGetStatusResponse) boo
 	bMembers := make([]string, 0, l)
 	for i := 0; i < l; i++ {
 		aM := a.Members[i]
-		aMembers = append(aMembers, fmt.Sprintf("%s:%s", aM.Name, aM.State))
+		aMembers = append(aMembers, aM.Name)
 		bM := b.Members[i]
-		bMembers = append(bMembers, fmt.Sprintf("%s:%s", bM.Name, bM.State))
+		bMembers = append(bMembers, bM.Name)
 	}
 	sort.Strings(aMembers)
 	sort.Strings(bMembers)
@@ -274,8 +284,11 @@ func sameIMMembers(a *isMasterResponse, b *isMasterResponse) bool {
 	}
 	sort.Strings(aHosts)
 	sort.Strings(bHosts)
-	aHosts = append(aHosts, a.Primary)
-	bHosts = append(bHosts, b.Primary)
+  // the primary may not be reachable on a member so compare them only if both are non-empty
+  if len(a.Primary) > 0 && len(b.Primary) > 0 {
+    aHosts = append(aHosts, a.Primary)
+    bHosts = append(bHosts, b.Primary)
+  }
 	for i := range aHosts {
 		if aHosts[i] != bHosts[i] {
 			return false

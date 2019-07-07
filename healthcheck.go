@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -92,7 +91,10 @@ func (r *ReplicaSet) HandleFailure() {
 // Attemps to connect to Mongo through Dvara. Blocking call.
 func (r *ReplicaSet) runCheck(errChan chan<- error) {
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
-	addrs := strings.Split(fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", r.PortStart, r.PortStart+1, r.PortStart+2, r.PortStart+3, r.PortStart+4), ",")
+  addrs := []string{}
+  for i := r.PortStart; i <= r.PortEnd; i++ {
+    addrs = append(addrs, fmt.Sprintf("127.0.0.1:%d", i))
+  }
 	err := checkReplSetStatus(addrs, r.Name, r.HealthCheckTLSConfig)
 	select {
 	case errChan <- err:

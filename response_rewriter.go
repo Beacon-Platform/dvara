@@ -393,6 +393,7 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 type statusMember struct {
 	Name  string       `bson:"name"`
 	State ReplicaState `bson:"stateStr,omitempty"`
+  StateCode int      `bson:"state"`
 	Self  bool         `bson:"self,omitempty"`
 	Extra bson.M       `bson:",inline"`
 }
